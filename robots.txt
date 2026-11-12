@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://memocraft.aortiz.org/sitemap.xml

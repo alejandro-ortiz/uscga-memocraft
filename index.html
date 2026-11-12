@@ -4,7 +4,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Memo Generator</title>
+
+  <!-- ─── SEO / primary meta ─── -->
+  <title>Coast Guard Memo Generator (Word &amp; PDF) — MemoCraft</title>
+  <meta name="description" content="Format and download U.S. Coast Guard memorandums as Word or PDF, right in your browser. A free, unofficial memo tool for USCGA cadets.">
+  <link rel="canonical" href="https://memocraft.aortiz.org/">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#080d55">
+
+  <!-- Icons -->
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+  <!-- Open Graph (link previews in iMessage, Slack, Discord, etc.) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MemoCraft">
+  <meta property="og:url" content="https://memocraft.aortiz.org/">
+  <meta property="og:title" content="MemoCraft — Coast Guard Memo Generator">
+  <meta property="og:description" content="Format and download U.S. Coast Guard memorandums as Word or PDF, right in your browser. Free and unofficial, built for USCGA cadets.">
+  <meta property="og:image" content="https://memocraft.aortiz.org/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="MemoCraft — Coast Guard Memo Generator">
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MemoCraft — Coast Guard Memo Generator">
+  <meta name="twitter:description" content="Format and download U.S. Coast Guard memorandums as Word or PDF, right in your browser. Free and unofficial, built for USCGA cadets.">
+  <meta name="twitter:image" content="https://memocraft.aortiz.org/og-image.png">
+
+  <!-- Structured data: free web application -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "MemoCraft — Coast Guard Memo Generator",
+    "url": "https://memocraft.aortiz.org/",
+    "description": "Browser-based tool to format and download U.S. Coast Guard memorandums as Word or PDF. Unofficial; built for USCGA cadets.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Any (web browser)",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
 
   <!-- ─── Cache-busting loader (single source of truth) ───────────────────
        Bump APP_VERSION on every deploy. An import map rewrites EVERY ./js/*.js
@@ -14,7 +56,7 @@
        constant. (Vendor libs are already version-pinned in their filenames.) -->
   <script>
     (function () {
-      var APP_VERSION = '2026.11.12.4';   // ← bump on each deploy
+      var APP_VERSION = '2026.11.12.5';   // ← bump on each deploy
       var MODULES = ['app', 'docx-generator', 'download-handler', 'memo-editor',
         'memo-storage', 'pdf-generator', 'preview', 'state', 'utils', 'validation'];
       var imports = {};
@@ -37,11 +79,22 @@
       document.head.appendChild(entry);
     })();
   </script>
-  <script src="js/vendor/docx-8.5.0.umd.js"></script>
-  <script src="js/vendor/pdf-lib-1.17.1.min.js"></script>
+  <!-- Vendor libs are only used at export time, so defer them to keep first paint fast. -->
+  <script defer src="js/vendor/docx-8.5.0.umd.js"></script>
+  <script defer src="js/vendor/pdf-lib-1.17.1.min.js"></script>
 </head>
 
 <body>
+
+  <!-- Crawlable heading + intro for search engines and no-JS (visually hidden). -->
+  <h1 class="sr-only">Coast Guard Memorandum Generator</h1>
+  <p class="sr-only">MemoCraft is a free, unofficial browser tool for U.S. Coast Guard Academy cadets to
+    format U.S. Coast Guard memorandums (memos) and export them to Microsoft Word or PDF. It is not
+    affiliated with the U.S. Coast Guard or the Department of Homeland Security.</p>
+  <noscript>
+    <p style="padding:16px;font-family:system-ui,sans-serif;">MemoCraft formats U.S. Coast Guard
+      memorandums and exports them as Word or PDF. It requires JavaScript to run.</p>
+  </noscript>
 
   <!-- Backdrop shown behind the sidebar drawer on mobile; tap to close. -->
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
