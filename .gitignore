@@ -1,0 +1,19 @@
+# ─── Never publish source/reference or generated documents ───
+# Reference material (local only — e.g. the Correspondence Manual, sample memo)
+*.pdf
+*.doc
+*.docx
+# (logo.gif / logo.png and js/vendor/* are intentionally NOT ignored — the site needs them)
+
+# ─── Local test / verification artifacts ───
+.playwright-mcp/
+baseline-check.png
+memo-baseline.png
+
+# ─── OS / editor cruft ───
+.DS_Store
+Thumbs.db
+*~
+
+# Verification screenshots
+*-check.png

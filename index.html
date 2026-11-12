@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memo Generator</title>
+
+  <!-- ─── Cache-busting loader (single source of truth) ───────────────────
+       Bump APP_VERSION on every deploy. An import map rewrites EVERY ./js/*.js
+       import — including the imports modules make of one another — to carry
+       ?v=APP_VERSION, so an update can never serve a stale mix of old and new
+       modules. The stylesheet and entry script are versioned from the same
+       constant. (Vendor libs are already version-pinned in their filenames.) -->
+  <script>
+    (function () {
+      var APP_VERSION = '2026.11.12.4';   // ← bump on each deploy
+      var MODULES = ['app', 'docx-generator', 'download-handler', 'memo-editor',
+        'memo-storage', 'pdf-generator', 'preview', 'state', 'utils', 'validation'];
+      var imports = {};
+      MODULES.forEach(function (m) {
+        imports['./js/' + m + '.js'] = './js/' + m + '.js?v=' + APP_VERSION;
+      });
+      var map = document.createElement('script');
+      map.type = 'importmap';
+      map.textContent = JSON.stringify({ imports: imports });
+      document.head.appendChild(map);
+
+      var css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'css/styles.css?v=' + APP_VERSION;
+      document.head.appendChild(css);
+
+      var entry = document.createElement('script');
+      entry.type = 'module';
+      entry.src = 'js/app.js?v=' + APP_VERSION;
+      document.head.appendChild(entry);
+    })();
+  </script>
+  <script src="js/vendor/docx-8.5.0.umd.js"></script>
+  <script src="js/vendor/pdf-lib-1.17.1.min.js"></script>
+</head>
+
+<body>
+
+  <!-- Backdrop shown behind the sidebar drawer on mobile; tap to close. -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <h2>Saved Memos</h2>
+      <button class="sidebar-close">×</button>
+    </div>
+    <button class="sidebar-new">+ New Memo</button>
+    <div class="sidebar-actions">
+      <div class="dropdown" id="importDropdown">
+        <button class="action-btn" id="importBtn">Import ▾</button>
+        <div class="dropdown-content">
+          <button id="importUploadBtn">Upload File</button>
+          <button id="importPasteBtn">Paste JSON</button>
+        </div>
+      </div>
+      <button class="action-btn" id="exportBtn">Export</button>
+      <input type="file" id="importFile" style="display:none" accept=".json">
+    </div>
+    <div class="memo-list" id="memoList"></div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="topbar-toggle">☰</button>
+      <span class="topbar-title">MemoCraft</span>
+      <div style="display:flex;height:100%;">
+        <button class="topbar-credits">Credits</button>
+        <button class="topbar-help">Help</button>
+      </div>
+      <button class="topbar-save">Save Memo</button>
+      <button class="topbar-generate" id="generateWordBtn" data-generate>Word</button>
+      <button class="topbar-generate" id="generatePdfBtn" data-generate>PDF</button>
+    </div>
+
+    <!-- Mobile-only view switch (shown ≤900px; hidden on desktop split view) -->
+    <div class="mobile-tabs" id="mobileTabs">
+      <button class="mtab active" data-view="form">Form</button>
+      <button class="mtab" data-view="preview">Preview</button>
+    </div>
+
+    <div class="split" id="split">
+      <div class="form-side">
+
+        <div class="section">
+          <div class="section-label" style="cursor:pointer;user-select:none;">
+            <span class="fold-arrow" style="display:inline-block;width:14px;">▸</span> Header Info
+          </div>
+          <div class="opt-body" id="headerInfoBody">
+            <div class="field" style="margin-bottom:10px;">
+              <label>Unit</label>
+              <textarea id="headerUnit" rows="2">Superintendent
+U. S. Coast Guard Academy</textarea>
+            </div>
+            <div class="field">
+              <label>Unit Address</label>
+              <textarea id="headerAddress" rows="2">15 Mohegan Ave.
+New London, CT 06320</textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-label">Contact Details</div>
+          <div class="row">
+            <div class="field"><label>Phone</label><input type="text" id="contactPhone" placeholder="(123) 456-7890">
+            </div>
+            <div class="field"><label>Email</label><input type="text" id="contactEmail"
+                placeholder="first.m.last@uscga.edu"></div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <div class="ssic-label-wrapper">
+                <label>SSIC</label>
+                <a href="https://www.dcms.uscg.mil/Portals/10/SSIC%20Subject%20List.pdf" target="_blank"
+                  title="View SSIC Subject List" class="info-link">🛈</a>
+              </div>
+              <input type="text" id="ssic" placeholder="1531">
+            </div>
+            <div class="field"><label>Date</label><input type="date" id="memoDate"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-label">From</div>
+          <div class="person-entry">
+            <input type="text" placeholder="First M. Last" id="from-name">
+            <input type="text" class="rank" placeholder="Rank" id="from-rank">
+          </div>
+          <div class="field" style="margin-top: 6px;">
+            <input type="text" placeholder="Position / Title" id="from-position">
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-label" style="display:flex;align-items:center;gap:6px;">
+            To
+            <a href="https://cgacademy.sharepoint.com/:b:/r/sites/cadet-training-and-operations/Intro%20to%20CG%20Systems/Unit%203.0%20Coast%20Guard%20Professional%20Development/3.7%20CG%20Correspondence%20Memorandum/Memo%20Resources/Staff%20Symbols%202025.pdf"
+              target="_blank" title="View Staff Symbols" class="info-link">🛈</a>
+          </div>
+          <div class="person-entry">
+            <input type="text" placeholder="First M. Last" id="to-name">
+            <input type="text" class="rank" placeholder="Rank" id="to-rank">
+          </div>
+          <div class="field" style="margin-top: 6px;">
+            <input type="text" placeholder="Position / Title" id="to-position">
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-label">Thru (Optional)</div>
+          <div id="thruContainer"></div>
+          <button class="add-btn">+ Add to Thru Chain</button>
+        </div>
+
+        <div class="section">
+          <div class="section-label">Subject</div>
+          <div class="field"><input type="text" id="subject" placeholder="SUBJECT LINE IN CAPS"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-label">Memo Body</div>
+          <div class="editor">
+            <div class="editor-toolbar">
+              <button>+ Add</button>
+              <button>→ Indent</button>
+              <button>← Outdent</button>
+              <button title="Toggle bullet for the current line">• Bullet</button>
+            </div>
+            <div class="editor-lines" id="memoLines"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="opt-toggle">
+            <div class="check" id="refsCheck">✓</div>
+            <span class="opt-label">References</span>
+          </div>
+          <div class="opt-body" id="refsBody">
+            <div class="field">
+              <textarea id="references" rows="2" placeholder="One reference per line — (a), (b)… added automatically"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="opt-toggle">
+            <div class="check" id="enclCheck">✓</div>
+            <span class="opt-label">Enclosures</span>
+          </div>
+          <div class="opt-body" id="enclBody">
+            <div class="field">
+              <textarea id="enclosures" rows="2" placeholder="One enclosure per line — (1), (2)… added automatically"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="opt-toggle">
+            <div class="check" id="distCheck">✓</div>
+            <span class="opt-label">Distribution</span>
+          </div>
+          <div class="opt-body" id="distBody">
+            <div class="field">
+              <textarea id="dist" rows="2" placeholder="[Optional Distribution]"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="opt-toggle">
+            <div class="check" id="copyCheck">✓</div>
+            <span class="opt-label">Copy To</span>
+          </div>
+          <div class="opt-body" id="copyBody">
+            <div class="field">
+              <textarea id="copyTo" rows="2" placeholder="[Optional Copy]"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="opt-toggle">
+            <div class="check" id="bccCheck">✓</div>
+            <span class="opt-label">Blind Copy</span>
+          </div>
+          <div class="opt-body" id="bccBody">
+            <div class="field">
+              <textarea id="blindCopy" rows="2"
+                placeholder="[Optional Blind Copy – Internal to Coast Guard only]"></textarea>
+            </div>
+          </div>
+        </div>
+
+
+        <div id="validationPanel" style="display:none;"></div>
+
+        <div class="section" style="padding-top: 20px; display:flex; gap:10px;">
+          <button class="topbar-generate" id="generateWordBtnBottom" data-generate
+            style="flex:1; padding: 12px; font-size: 16px;">Download Word</button>
+          <button class="topbar-generate" id="generatePdfBtnBottom" data-generate
+            style="flex:1; padding: 12px; font-size: 16px;">Download PDF</button>
+        </div>
+
+
+      </div>
+
+      <div class="preview-side" id="previewSide">
+        <div class="page-stack" id="pageStack"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="credits-overlay" id="creditsOverlay">
+    <div class="credits-modal">
+      <button class="credits-close">&times;</button>
+      <h3>Credits</h3>
+      <div class="credits-content">
+        <p>Now managed and updated by <strong>Alejandro Ortiz</strong>, Class of 2030, Cyber Systems major.</p>
+        <p>Originally made by Max Eisenbeiser.</p>
+        <p><strong>MemoCraft SAD Group:</strong></p>
+        <ul>
+          <li>Xavier DiGennaro</li>
+          <li>Ashley Boley</li>
+          <li>Grant Gibson</li>
+          <li>Daniel Francis Sales</li>
+          <li>Kai Trager</li>
+          <li>Max Eisenbeiser</li>
+        </ul>
+        <p>Special thanks to LCDR Shih and Connor Fulbright.</p>
+        <p>Built with Opus 4.5.</p>
+        <p>This project is unofficial and not associated with either DHS or USCG.</p>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="credits-overlay" id="helpOverlay">
+    <div class="credits-modal">
+      <button class="credits-close" id="helpClose">&times;</button>
+      <h3>Help</h3>
+      <div class="credits-content">
+        <p>If you have any suggestions, problems to report, or your memo got rejected, please send me a message on my
+          .edu email</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="credits-overlay" id="pasteJsonOverlay">
+    <div class="credits-modal">
+      <button class="credits-close" id="pasteJsonClose">&times;</button>
+      <h3>Paste JSON</h3>
+      <div class="credits-content">
+        <p>Paste your memo JSON data below:</p>
+        <textarea id="pasteJsonTextarea"
+          style="width:100%;height:500px;border:1px solid var(--border-color);padding:8px;font-family:monospace;font-size:12px;resize:vertical;"></textarea>
+        <button id="loadPastedJsonBtn"
+          style="margin-top:12px;background:var(--btn-save);color:#fff;border:none;padding:8px 16px;cursor:pointer;font-weight:600;width:100%;">Load
+          Memo</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>
